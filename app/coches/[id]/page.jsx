@@ -1,11 +1,15 @@
 import { cars } from "@/data/cars"
+import { notFound } from "next/navigation"
 import CarGallery from "@/components/CarGallery"
 import WhatsAppButton from "@/components/WhatsAppButton"
 import ContactEmailButton from "@/components/ContactEmailButton"
 import BackButton from "@/components/BackButton"
 
-export default function CarDetail({ params }) {
-  const car = cars.find(c => c.id === params.id)
+export default async function CarDetail({ params }) {
+  const { id } = await params
+  const car = cars.find(c => c.id === id)
+
+  if (!car) notFound()
 
   return (
     <div className="bg-black text-white min-h-screen p-6 md:p-12">
@@ -61,7 +65,7 @@ export default function CarDetail({ params }) {
                 <p className="text-gray-300 leading-relaxed text-sm font-medium">{car.description}</p>
               </div>
 
-              {/* Nueva sección Extras */}
+              {/* Extras */}
               {car.extras && car.extras.length > 0 && (
                 <div className="mb-8">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-3">Extras Destacados</h3>
@@ -91,4 +95,3 @@ export default function CarDetail({ params }) {
     </div>
   )
 }
-``

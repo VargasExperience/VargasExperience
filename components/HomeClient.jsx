@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { cars } from "@/data/cars"
 import HeroSearch from "@/components/HeroSearch"
@@ -12,6 +12,24 @@ import CompareModal from "@/components/CompareModal"
 import RequestCarModal from "@/components/RequestCarModal"
 import { SlidersHorizontal } from "lucide-react"
 
+const ITEMS_PER_PAGE = 20
+
+// Helper para parsear fechas de subida (DD/MM/YYYY → timestamp)
+const parseUploadDate = (dateStr) => {
+  if (!dateStr) return 0
+  const [d, m, y] = dateStr.split('/')
+  return new Date(`${y}-${m}-${d}T12:00:00Z`).getTime()
+}
+
+// Helper para parsear año/mes (MM/YYYY o YYYY → número comparable)
+const parseYearMonth = (ymStr) => {
+  if (!ymStr) return 0
+  const parts = String(ymStr).split('/')
+  return parts.length === 2
+    ? Number(parts[1]) * 100 + Number(parts[0])
+    : Number(parts[0]) * 100
+}
+
 export default function HomeClient() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -20,7 +38,7 @@ export default function HomeClient() {
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false)
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false)
 
-  const toggleCompare = (car) => {
+  const toggleCompare = useCallback((car) => {
     setCompareList(prev => {
       if (prev.some(c => c.id === car.id)) {
         return prev.filter(c => c.id !== car.id)
@@ -31,11 +49,11 @@ export default function HomeClient() {
       }
       return [...prev, car]
     })
-  }
+  }, [])
 
-  const removeCompare = (carId) => {
+  const removeCompare = useCallback((carId) => {
     setCompareList(prev => prev.filter(c => c.id !== carId))
-  }
+  }, [])
 
   // Determinar si estamos en modo "Landing" o "Catálogo"
   const hasActiveSearch = searchParams.toString().length > 0
@@ -56,26 +74,9 @@ export default function HomeClient() {
   const sort = searchParams.get("sort") || "default"
 
   // Paginación
-  const ITEMS_PER_PAGE = 20
   const pageParam = searchParams.get("page") || "1"
-  let currentPage = parseInt(pageParam)
-  if (isNaN(currentPage) || currentPage < 1) currentPage = 1
-
-  // Helpers para parsear fechas
-  const parseUploadDate = (dateStr) => {
-    if (!dateStr) return 0;
-    const [d, m, y] = dateStr.split('/');
-    return new Date(`${y}-${m}-${d}T12:00:00Z`).getTime();
-  };
-
-  const parseYearMonth = (ymStr) => {
-    if (!ymStr) return 0;
-    const parts = String(ymStr).split('/');
-    if (parts.length === 2) {
-      return Number(parts[1]) * 100 + Number(parts[0]);
-    }
-    return Number(parts[0]) * 100;
-  };
+  const parsedPage = parseInt(pageParam)
+  const currentPage = isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage
 
   // Memoize el filtrado para evitar re-cálculos innecesarios
   const filteredCars = useMemo(() => {
@@ -126,11 +127,11 @@ export default function HomeClient() {
 
   // Lógica de corte por página
   const totalPages = Math.ceil(filteredCars.length / ITEMS_PER_PAGE)
-  if (currentPage > totalPages && totalPages > 0) currentPage = totalPages
+  const safePage = totalPages > 0 && currentPage > totalPages ? totalPages : currentPage
 
   const paginatedCars = filteredCars.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE
   )
 
 
@@ -180,11 +181,8 @@ export default function HomeClient() {
                 value={sort}
                 onChange={(e) => {
                   const params = new URLSearchParams(searchParams.toString())
-                  if (e.target.value !== 'default') {
-                    params.set("sort", e.target.value)
-                  } else {
-                    params.delete("sort")
-                  }
+                  if (e.target.value !== 'default') params.set("sort", e.target.value)
+                  else params.delete("sort")
                   router.push(`/?${params.toString()}`, { scroll: false })
                 }}
                 className="bg-transparent text-white focus:outline-none focus:text-primary transition cursor-pointer font-bold appearance-none outline-none"
@@ -219,10 +217,10 @@ export default function HomeClient() {
               {totalPages > 1 && (
                 <div className="flex justify-center items-center gap-2 mt-12 mb-4 flex-wrap">
                   <button 
-                    disabled={currentPage === 1}
+                    disabled={safePage === 1}
                     onClick={() => {
                       const params = new URLSearchParams(searchParams.toString())
-                      params.set("page", currentPage - 1)
+                      params.set("page", safePage - 1)
                       router.push(`/?${params.toString()}`)
                       window.scrollTo({ top: 0, behavior: 'smooth' })
                     }}
@@ -232,9 +230,8 @@ export default function HomeClient() {
                   </button>
                   
                   <div className="flex gap-2">
-                    {Array.from({ length: totalPages })
-                      .map((_, i) => i + 1)
-                      .filter(p => p >= currentPage - 2 && p <= currentPage + 2)
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(p => p >= safePage - 2 && p <= safePage + 2)
                       .map((p) => (
                       <button
                         key={p}
@@ -244,7 +241,7 @@ export default function HomeClient() {
                           router.push(`/?${params.toString()}`)
                           window.scrollTo({ top: 0, behavior: 'smooth' })
                         }}
-                        className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors font-bold ${currentPage === p ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)]' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}
+                        className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors font-bold ${safePage === p ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)]' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}
                       >
                         {p}
                       </button>
@@ -252,10 +249,10 @@ export default function HomeClient() {
                   </div>
 
                   <button 
-                    disabled={currentPage === totalPages}
+                    disabled={safePage === totalPages}
                     onClick={() => {
                       const params = new URLSearchParams(searchParams.toString())
-                      params.set("page", currentPage + 1)
+                      params.set("page", safePage + 1)
                       router.push(`/?${params.toString()}`)
                       window.scrollTo({ top: 0, behavior: 'smooth' })
                     }}
@@ -270,18 +267,17 @@ export default function HomeClient() {
                       type="number"
                       min={1}
                       max={totalPages}
-                      placeholder={currentPage}
+                      placeholder={safePage}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          let p = parseInt(e.currentTarget.value);
+                          let p = parseInt(e.currentTarget.value)
                           if (!isNaN(p)) {
-                            if (p < 1) p = 1;
-                            if (p > totalPages) p = totalPages;
-                            const params = new URLSearchParams(searchParams.toString());
-                            params.set("page", p);
-                            router.push(`/?${params.toString()}`);
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                            e.currentTarget.value = '';
+                            p = Math.min(Math.max(p, 1), totalPages)
+                            const params = new URLSearchParams(searchParams.toString())
+                            params.set("page", p)
+                            router.push(`/?${params.toString()}`)
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                            e.currentTarget.value = ''
                           }
                         }
                       }}
@@ -292,8 +288,8 @@ export default function HomeClient() {
               )}
             </div>
           ) : (
-            <div className="text-center py-20 bg-gray-900 rounded-xl border border-gray-800">
-              <p className="text-xl text-gray-400 mb-6">No se han encontrado vehículos con estos criterios.</p>
+            <div className="text-center py-20 bg-black/40 rounded-xl border border-white/5">
+              <p className="text-xl text-white mb-6">No se han encontrado vehículos con estos criterios.</p>
               <div className="flex justify-center gap-4">
                 <button 
                   onClick={() => router.push('/?all=true', { scroll: false })}

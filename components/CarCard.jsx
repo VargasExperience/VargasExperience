@@ -1,39 +1,28 @@
 import Link from "next/link";
-import { Gauge, Calendar, Cog, GripHorizontal, Scale } from "lucide-react";
-export default function CarCard({ car, isCompared, onToggleCompare }) {
-  const getUploadDateText = (dateStr) => {
-    if (!dateStr) return "Subido recientemente";
-    // parsear DD/MM/YYYY
-    const [day, month, year] = dateStr.split('/');
-    const date = new Date(`${year}-${month}-${day}T12:00:00Z`);
-    const now = new Date();
-    
-    const diffMs = now - date;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    let relativeStr = "";
-    if (diffDays === 0) relativeStr = "hace unas horas";
-    else if (diffDays === 1) relativeStr = "hace 1 día";
-    else if (diffDays < 30) relativeStr = `hace ${diffDays} días`;
-    else if (diffDays < 365) {
-      const diffMonths = Math.floor(diffDays / 30);
-      relativeStr = diffMonths === 1 ? "hace 1 mes" : `hace ${diffMonths} meses`;
-    } else {
-      const diffYears = Math.floor(diffDays / 365);
-      const remainingDays = diffDays % 365;
-      const diffMonths = Math.floor(remainingDays / 30);
-      
-      const yearsStr = diffYears === 1 ? "1 año" : `${diffYears} años`;
-      if (diffMonths > 0) {
-        const monthsStr = diffMonths === 1 ? "1 mes" : `${diffMonths} meses`;
-        relativeStr = `hace ${yearsStr} y ${monthsStr}`;
-      } else {
-        relativeStr = `hace ${yearsStr}`;
-      }
-    }
+import { Gauge, Calendar, Cog, GripHorizontal } from "lucide-react";
 
-    return `Subido el ${dateStr} (${relativeStr})`;
-  };
+// Función pura: calcular texto relativo de fecha de subida
+function getUploadDateText(dateStr) {
+  if (!dateStr) return "Subido recientemente";
+  const [day, month, year] = dateStr.split('/');
+  const date = new Date(`${year}-${month}-${day}T12:00:00Z`);
+  const diffDays = Math.floor((Date.now() - date.getTime()) / 86_400_000);
+
+  if (diffDays === 0) return `Subido el ${dateStr} (hace unas horas)`;
+  if (diffDays === 1) return `Subido el ${dateStr} (hace 1 día)`;
+  if (diffDays < 30) return `Subido el ${dateStr} (hace ${diffDays} días)`;
+  if (diffDays < 365) {
+    const m = Math.floor(diffDays / 30);
+    return `Subido el ${dateStr} (hace ${m === 1 ? '1 mes' : `${m} meses`})`;
+  }
+  const y = Math.floor(diffDays / 365);
+  const m = Math.floor((diffDays % 365) / 30);
+  const yearsStr = y === 1 ? '1 año' : `${y} años`;
+  const monthsStr = m > 0 ? ` y ${m === 1 ? '1 mes' : `${m} meses`}` : '';
+  return `Subido el ${dateStr} (hace ${yearsStr}${monthsStr})`;
+}
+
+export default function CarCard({ car, isCompared, onToggleCompare }) {
 
   return (
     <div className="relative group">
@@ -46,6 +35,7 @@ export default function CarCard({ car, isCompared, onToggleCompare }) {
         <img 
           src={car.images[0]} 
           alt={car.name} 
+          loading="lazy"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
         />
       </div>

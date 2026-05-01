@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import FilterGroup from "./FilterGroup";
 import FilterRange from "./FilterRange";
@@ -33,15 +34,27 @@ export default function FilterSidebar({ carsData, isMobileOpen, onCloseMobile, f
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  // Obtener valores únicos para los selects
-  const brands = [...new Set(carsData.map(car => car.brand))].filter(Boolean);
-  const countries = [...new Set(carsData.map(car => car.country))].filter(Boolean);
-  const tractions = [...new Set(carsData.map(car => car.traction))].filter(Boolean);
+  // Obtener valores únicos para los selects (memoizados para evitar recálculos)
+  const brands = useMemo(
+    () => [...new Set(carsData.map(car => car.brand))].filter(Boolean),
+    [carsData]
+  );
+  const countries = useMemo(
+    () => [...new Set(carsData.map(car => car.country))].filter(Boolean),
+    [carsData]
+  );
+  const tractions = useMemo(
+    () => [...new Set(carsData.map(car => car.traction))].filter(Boolean),
+    [carsData]
+  );
 
   const selectedBrand = searchParams.get("brand");
-  const availableModels = selectedBrand
-    ? [...new Set(carsData.filter(car => car.brand === selectedBrand).map(car => car.model))].filter(Boolean)
-    : [...new Set(carsData.map(car => car.model))].filter(Boolean);
+  const availableModels = useMemo(
+    () => selectedBrand
+      ? [...new Set(carsData.filter(car => car.brand === selectedBrand).map(car => car.model))].filter(Boolean)
+      : [...new Set(carsData.map(car => car.model))].filter(Boolean),
+    [carsData, selectedBrand]
+  );
 
   const sidebarContent = (
     <div className="h-full flex flex-col">
